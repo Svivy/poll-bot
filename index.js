@@ -9,7 +9,7 @@ const CONFIG = {
   sendTime:    "0 12 * * 1-5",
 };
 
-const pollOptions = ["📈 Bullish", "📉 Bearish", "↔️ Neutral / Ranging"];
+const pollOptions = ["📈 Bullish", "📉 Bearish", "↔️ Ranging"];
 
 function getDayLabel() {
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -25,7 +25,7 @@ async function sendPoll() {
   try {
     const response = await axios.post(url, {
       chatId: groupChatId,
-      message: `📊 *XAUUSD Daily Bias Poll*\n🗓 ${day}, ${date}\n\nWhat's your bias on Gold today?`,
+      message: `📊 *XAUUSD Daily Bias*\n🗓 ${day}, ${date}\n\nBias on Gold today?`,
       options: pollOptions.map((o) => ({ optionName: o })),
       multipleAnswers: false,
     });
