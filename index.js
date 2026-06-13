@@ -25,7 +25,7 @@ async function sendPoll() {
   try {
     const response = await axios.post(url, {
       chatId: groupChatId,
-      message: `📊 *XAUUSD Daily Bias*\n🗓 ${day}, ${date}\n\nBias on Gold today?`,
+      message: `📊 *XAUUSD Bias*\n🗓 ${day}, ${date}\n\nBias on Gold today?`,
       options: pollOptions.map((o) => ({ optionName: o })),
       multipleAnswers: false,
     });
@@ -37,3 +37,4 @@ async function sendPoll() {
 
 console.log("🤖 Bot running — poll sends at 12:00 PM MYT, Mon–Fri");
 cron.schedule(CONFIG.sendTime, sendPoll, { timezone: CONFIG.timezone });
+sendPoll();
