@@ -25,7 +25,7 @@ async function sendPoll() {
   try {
     const response = await axios.post(url, {
       chatId: groupChatId,
-      message: `📊 *XAUUSD Bias*\n🗓 ${day}, ${date}\n\nBias on Gold today?`,
+      message: `📊 *XAUUSD Bias*\n🗓 ${day}, ${date}\n\n,
       options: pollOptions.map((o) => ({ optionName: o })),
       multipleAnswers: false,
     });
