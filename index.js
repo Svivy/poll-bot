@@ -37,4 +37,3 @@ async function sendPoll() {
 
 console.log("🤖 Bot running — poll sends at 12:00 PM MYT, Mon–Fri");
 cron.schedule(CONFIG.sendTime, sendPoll, { timezone: CONFIG.timezone });
-sendPoll();
