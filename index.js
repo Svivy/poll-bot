@@ -10,7 +10,7 @@ const CONFIG = {
   newsTime:    "30 11 * * 1-5",  // 11:30 AM Mon-Fri (news reminder)
 };
  
-const pollOptions = ["📈 Bullish", "📉 Bearish", "↔️ Neutral / Ranging"];
+const pollOptions = ["📈 Bullish", "📉 Bearish", "↔️ Ranging"];
  
 function getDayLabel() {
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -27,7 +27,7 @@ async function sendPoll() {
   try {
     const response = await axios.post(url, {
       chatId: groupChatId,
-      message: `📊 *XAUUSD Daily Bias Poll*\n🗓 ${day}, ${date}`,
+      message: `📊 *XAUUSD Bias*\n🗓 ${day}, ${date}`,
       options: pollOptions.map((o) => ({ optionName: o })),
       multipleAnswers: false,
     });
@@ -54,11 +54,11 @@ async function sendNewsReminder() {
     });
  
     if (todayHighImpactUSD.length === 0) {
-      console.log(`[${new Date().toISOString()}] ℹ️ No high-impact USD news today.`);
+      console.log(`[${new Date().toISOString()}] ℹ️ No news today.`);
       return;
     }
  
-    let message = `📰 *Today's High-Impact News (USD)*\n\n`;
+    let message = `📰 *Today's High-Impact News*\n\n`;
     todayHighImpactUSD.forEach((e) => {
       const time = new Date(e.date).toLocaleTimeString("en-MY", {
         timeZone: "Asia/Kuala_Lumpur",
@@ -68,7 +68,7 @@ async function sendNewsReminder() {
       });
       message += `🕗 ${time} MYT - ${e.title}\n`;
     });
-    message += `\n⚠️ Expect volatility around these times`;
+    message += `\n⚠️ Trade Safe!`;
  
     const url = `https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiToken}`;
     const result = await axios.post(url, {
