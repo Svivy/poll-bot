@@ -6,11 +6,14 @@ const CONFIG = {
   apiToken:    process.env.API_TOKEN,
   groupChatId: process.env.GROUP_CHAT_ID,
   timezone:    "Asia/Kuala_Lumpur",
-  sendTime:    "0 12 * * 1-5",   // 12:00 PM Mon-Fri (poll)
-  newsTime:    "30 11 * * 1-5",  // 11:30 AM Mon-Fri (news reminder)
+  sendTime:    "0 12 * * 1-5",  // 12:00 PM Mon-Fri (poll)
 };
  
 const pollOptions = ["📈 Bullish", "📉 Bearish", "↔️ Ranging"];
+ 
+// Keeps track of which events we've already alerted on, so we don't repeat-spam
+// every 15 min while an event sits inside the 1-hour window.
+const alertedEventIds = new Set();
  
 function getDayLabel() {
   const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -37,57 +40,74 @@ async function sendPoll() {
   }
 }
  
-// ─── NEWS REMINDER ─────────────────────────────────────────────────────────
-async function sendNewsReminder() {
+// ─── ROLLING NEWS CHECK (runs every 15 min, alerts ~1hr before each event) ──
+async function checkUpcomingNews() {
   const { idInstance, apiToken, groupChatId } = CONFIG;
  
   try {
     const response = await axios.get("https://nfs.faireconomy.media/ff_calendar_thisweek.json");
     const events = response.data;
  
-    const today = new Date();
-    const todayStr = today.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" }); // YYYY-MM-DD
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + 75 * 60 * 1000); // 1hr15min buffer so 15-min cron doesn't skip events
  
-    const todayHighImpactUSD = events.filter((e) => {
-      const eventDate = new Date(e.date).toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
-      return eventDate === todayStr && e.country === "USD" && e.impact === "High";
+    const upcoming = events.filter((e) => {
+      if (e.country !== "USD" || e.impact !== "High") return false;
+      const eventTime = new Date(e.date);
+      const eventId = `${e.title}-${e.date}`;
+      if (alertedEventIds.has(eventId)) return false;
+      // Event falls within the next ~1hr to 1hr15min window
+      return eventTime >= now && eventTime <= windowEnd;
     });
  
-    if (todayHighImpactUSD.length === 0) {
-      console.log(`[${new Date().toISOString()}] ℹ️ No news today.`);
-      return;
-    }
- 
-    let message = `📰 *Today's High-Impact News*\n\n`;
-    todayHighImpactUSD.forEach((e) => {
-      const time = new Date(e.date).toLocaleTimeString("en-MY", {
+    for (const e of upcoming) {
+      const eventId = `${e.title}-${e.date}`;
+      const eventTime = new Date(e.date);
+      const timeStr = eventTime.toLocaleTimeString("en-MY", {
         timeZone: "Asia/Kuala_Lumpur",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
       });
-      message += `🕗 ${time} MYT - ${e.title}\n`;
-    });
-    message += `\n⚠️ Trade Safe!`;
+      const dateStr = eventTime.toLocaleDateString("en-GB", {
+        timeZone: "Asia/Kuala_Lumpur",
+        day: "2-digit",
+        month: "short",
+      });
  
-    const url = `https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiToken}`;
-    const result = await axios.post(url, {
-      chatId: groupChatId,
-      message: message,
-    });
+      const message =
+        `📰 *High-Impact News in ~1 Hour*\n\n` +
+        `🕗 ${timeStr} MYT (${dateStr})\n` +
+        `📌 ${e.title}\n\n` +
+        `⚠️ Trade Safe`;
  
-    console.log(`[${new Date().toISOString()}] ✅ News reminder sent! ID: ${result.data.idMessage}`);
+      const url = `https://api.green-api.com/waInstance${idInstance}/sendMessage/${apiToken}`;
+      const result = await axios.post(url, { chatId: groupChatId, message });
+ 
+      alertedEventIds.add(eventId);
+      console.log(`[${new Date().toISOString()}] ✅ News alert sent for "${e.title}" — ID: ${result.data.idMessage}`);
+    }
+ 
+    if (upcoming.length === 0) {
+      console.log(`[${new Date().toISOString()}] ℹ️ No high-impact news.`);
+    }
+ 
+    // Cleanup: drop alerted IDs for events that are now in the past, so the Set doesn't grow forever
+    for (const id of alertedEventIds) {
+      const eventDateStr = id.split("-").slice(1).join("-");
+      if (new Date(eventDateStr) < now) alertedEventIds.delete(id);
+    }
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] ❌ News reminder error:`, err.response?.data || err.message);
+    console.error(`[${new Date().toISOString()}] ❌ News check error:`, err.response?.data || err.message);
   }
 }
  
 // ─── SCHEDULER ─────────────────────────────────────────────────────────────
-console.log("🤖 Bot running — news reminder at 11:30 AM, poll at 12:00 PM MYT, Mon-Fri");
+console.log("🤖 Bot running — news checked every 15 min, poll at 12:00 PM MYT Mon-Fri");
  
-cron.schedule(CONFIG.newsTime, () => {
-  console.log("⏰ Cron triggered — checking news...");
-  sendNewsReminder();
+// Check for upcoming high-impact news every 15 minutes, every day (news doesn't respect weekdays-only)
+cron.schedule("*/15 * * * *", () => {
+  checkUpcomingNews();
 }, { timezone: CONFIG.timezone });
  
 cron.schedule(CONFIG.sendTime, () => {
